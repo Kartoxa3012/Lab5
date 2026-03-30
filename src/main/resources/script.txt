@@ -1,0 +1,14 @@
+insert key1
+John
+10.5
+20.3
+100
+APOTHECARY
+HEAVY_BOLTGUN
+CHAIN_SWORD
+Chapter1
+50
+World1
+
+show
+save
