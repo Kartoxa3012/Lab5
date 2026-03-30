@@ -3,7 +3,9 @@ package SpaceMarineP.manager;
 import SpaceMarineP.Com.Command;
 
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Scanner;
 
 /**
@@ -13,6 +15,9 @@ import java.util.Scanner;
  * находит зарегистрированную команду и вызывает её метод {@link Command#execute(String[])}.
  * Также предоставляет метод {@link #processCommand(String)} для выполнения команд из скриптов.
  * </p>
+ * <p>
+ * Поддерживает очередь команд: можно добавлять команды в очередь и выполнять их последовательно.
+ * </p>
  *
  * @see Command
  */
@@ -20,14 +25,19 @@ public class Invoker {
     private Map<String, Command> commands;
     public Scanner scanner;
     private boolean running;
+    private Queue<String> commandQueue;      // очередь отложенных команд
+    private boolean queueMode;              // если true, команды не выполняются, а добавляются в очередь
 
     /**
-     * Создаёт новый Invoker, инициализируя хранилище команд и сканнер для чтения ввода.
+     * Создаёт новый Invoker, инициализируя хранилище команд, сканнер для чтения ввода,
+     * очередь команд и выключая режим очереди по умолчанию.
      */
     public Invoker() {
         this.commands = new HashMap<>();
         this.scanner = new Scanner(System.in);
         this.running = true;
+        this.commandQueue = new LinkedList<>();
+        this.queueMode = false;
     }
 
     /**
@@ -49,16 +59,100 @@ public class Invoker {
     }
 
     /**
+     * Добавляет строку команды в очередь.
+     *
+     * @param commandLine строка команды (как если бы её ввёл пользователь)
+     */
+    public void addToQueue(String commandLine) {
+        commandQueue.add(commandLine);
+    }
+
+    /**
+     * Очищает очередь команд.
+     */
+    public void clearQueue() {
+        commandQueue.clear();
+    }
+
+    /**
+     * Возвращает текущее количество команд в очереди.
+     *
+     * @return размер очереди
+     */
+    public int getQueueSize() {
+        return commandQueue.size();
+    }
+
+    /**
+     * Возвращает содержимое очереди (не изменяя её).
+     *
+     * @return копия очереди в виде массива строк
+     */
+    public String[] getQueueContents() {
+        return commandQueue.toArray(new String[0]);
+    }
+
+    /**
+     * Выполняет все команды из очереди последовательно, после чего очищает очередь.
+     * Если в процессе выполнения какой-то команды возникнет ошибка, выполнение останавливается.
+     */
+    public void executeQueue() {
+        while (!commandQueue.isEmpty()) {
+            String cmd = commandQueue.poll();
+            System.out.println("[выполнение очереди] " + cmd);
+            processCommand(cmd);
+        }
+    }
+
+    /**
+     * Проверяет, пуста ли очередь.
+     *
+     * @return true, если очередь пуста
+     */
+    public boolean isQueueEmpty() {
+        return commandQueue.isEmpty();
+    }
+
+    /**
+     * Включает или выключает режим очереди.
+     * В режиме очереди команды не выполняются сразу, а добавляются в очередь.
+     *
+     * @param mode true – включить режим очереди, false – выключить
+     */
+    public void setQueueMode(boolean mode) {
+        this.queueMode = mode;
+    }
+
+    /**
+     * Возвращает состояние режима очереди.
+     *
+     * @return true, если режим очереди включён
+     */
+    public boolean isQueueMode() {
+        return queueMode;
+    }
+
+    /**
      * Запускает основной цикл обработки команд из консоли.
      * Цикл продолжается, пока поле {@code running} равно {@code true}.
-     * При получении строки вызывает {@link #processCommand(String)} для её выполнения.
+     * При получении строки:
+     * <ul>
+     *   <li>если включён режим очереди – добавляет команду в очередь;</li>
+     *   <li>иначе – сразу выполняет через {@link #processCommand(String)}.</li>
+     * </ul>
      */
     public void run() {
         while (running) {
-            System.out.print(">");
+            System.out.print(queueMode ? "queue> " : "> ");
             String line = scanner.nextLine().trim();
             if (line.isEmpty()) continue;
-            processCommand(line);
+
+            if (queueMode) {
+                commandQueue.add(line);
+                System.out.println("Команда добавлена в очередь. Всего в очереди: " + commandQueue.size());
+            } else {
+                processCommand(line);
+            }
         }
         scanner.close();
     }
@@ -68,7 +162,7 @@ public class Invoker {
      * находит соответствующую команду и выполняет её.
      * <p>
      * Этот метод используется как для прямого ввода из консоли, так и для выполнения скриптов
-     * (например, из {@link SpaceMarineP.Com.ExecuteScriptCommand}).
+     * (например, из {@link SpaceMarineP.Com.ExecuteScriptCommand}) и для выполнения очереди.
      * </p>
      *
      * @param line строка команды, введённая пользователем или прочитанная из скрипта
