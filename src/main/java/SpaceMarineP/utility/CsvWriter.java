@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * Утилитный класс для записи коллекции в CSV-файл.
- * <p>
+
  * Записывает элементы коллекции в формате CSV с разделителем {@code ;} (точка с запятой).
  * Формат строки (13 полей):
  * <ol start="0">
@@ -32,7 +32,7 @@ import java.util.Map;
  *     <li>мир главы (String) – может быть пустым, если глава отсутствует</li>
  * </ol>
  * Пустые поля записываются как пустые строки между разделителями.
- * </p>
+
  *
  * @see CollectionManager
  * @see SpaceMarine
@@ -41,11 +41,11 @@ public class CsvWriter {
 
     /**
      * Записывает все элементы коллекции в выходной поток в формате CSV.
-     * <p>
+
      * Для каждого элемента коллекции формируется строка из 13 полей, разделённых {@code ;}.
      * Если глава (chapter) отсутствует, три соответствующих поля остаются пустыми.
      * Если опциональные поля (category, meleeWeapon, world) отсутствуют, они также заменяются пустыми строками.
-     * </p>
+
      *
      * @param writer  PrintWriter, связанный с файлом (обычно через {@link java.io.FileWriter})
      * @param manager менеджер коллекции, из которого извлекаются элементы
@@ -56,27 +56,31 @@ public class CsvWriter {
             String key = entry.getKey();
             SpaceMarine m = entry.getValue();
             List<String> fields = new ArrayList<>();
-            fields.add(key);
+            fields.add((shielding(key)));
             fields.add(m.getId().toString());
-            fields.add(m.getName());
+            fields.add(shielding(m.getName()));
             fields.add(Float.toString(m.getCoordinates().getX()));
             fields.add(m.getCoordinates().getY().toString());
             fields.add(m.getCreationDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             fields.add(Float.toString(m.getHealth()));
-            fields.add(m.getCategory() == null ? "" : m.getCategory().name());
-            fields.add(m.getWeaponType().name());
-            fields.add(m.getMeleeWeapon() == null ? "" : m.getMeleeWeapon().name());
+            fields.add(shielding(m.getCategory() == null ? "" : m.getCategory().name()));
+            fields.add(shielding(m.getWeaponType().name()));
+            fields.add(shielding(m.getMeleeWeapon() == null ? "" : m.getMeleeWeapon().name()));
             Chapter ch = m.getChapter();
             if (ch == null) {
-                fields.add("");
-                fields.add("");
-                fields.add("");
+                fields.add(shielding(""));
+                fields.add(shielding(""));
+                fields.add(shielding(""));
             } else {
-                fields.add(ch.getName());
-                fields.add(ch.getMarinesCount().toString());
-                fields.add(ch.getWorld() == null ? "" : ch.getWorld());
+                fields.add(shielding(ch.getName()));
+                fields.add(shielding(ch.getMarinesCount().toString()));
+                fields.add(shielding(ch.getWorld() == null ? "" : ch.getWorld()));
             }
             writer.println(String.join(";", fields));
         }
+    }
+
+    private static String shielding(String s) {
+        return "\"" + s.replace("\"", "\"\"") + "\"";
     }
 }
