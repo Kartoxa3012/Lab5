@@ -6,11 +6,15 @@ import SpaceMarineP.model.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
+
+import static java.lang.System.exit;
 
 /**
  * Утилитарный класс для чтения коллекции из CSV-файла.
- * <p>
+
  * Формат файла: строки с разделителем {@code ;} (точка с запятой).
  * Каждая строка должна содержать ровно 13 полей в следующем порядке:
  * <ol start="0">
@@ -30,7 +34,7 @@ import java.util.Scanner;
  * </ol>
  * Пустые поля обозначаются отсутствием значения между разделителями (например, {@code ;;}).
  * При чтении некорректные строки пропускаются с выводом сообщения в {@code System.err}.
- * </p>
+
  *
  * @see CollectionManager
  * @see SpaceMarine
@@ -39,16 +43,16 @@ public class CsvReader {
 
     /**
      * Загружает коллекцию из CSV-файла по указанному пути.
-     * <p>
+
      * Метод открывает файл, построчно разбирает его содержимое, создаёт объекты
      * {@link SpaceMarine} и добавляет их в коллекцию через {@link CollectionManager#put(String, SpaceMarine)}.
      * При возникновении ошибок (недостаток полей, неверный формат данных и т.п.) строка пропускается,
      * а сообщение об ошибке выводится в стандартный поток ошибок.
-     * </p>
-     * <p>
+
+
      * <strong>Важно:</strong> метод содержит отладочный вывод в консоль, который выводит каждую строку
      * и количество полей. Для реального использования этот вывод может быть удалён или закомментирован.
-     * </p>
+
      *
      * @param filePath           путь к CSV-файлу
      * @param collectionManager  менеджер коллекции, в который будут добавлены элементы
@@ -57,48 +61,69 @@ public class CsvReader {
     public static void ReadCsv(String filePath, CollectionManager collectionManager) {
         System.out.println("Чтение файла: " + filePath);
 
+        if (!filePath.toLowerCase().endsWith(".csv")) {
+            System.err.println("Файл не имеет расширения .csv");
+            exit(1);
+        }
+
         try (Scanner scanner = new Scanner(new File(filePath))) {
             int rowCount = 0;
 
             // Читаем данные
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
-                String[] fields = line.split(";", -1);
+                rowCount++;
 
-                System.out.print("Строка " + (++rowCount) + ": ");
-                for (String field : fields) {
-                    System.out.print(field.trim() + " | ");
+                List<String> fields = new ArrayList<>();
+                StringBuilder current = new StringBuilder();
+                boolean inQuotes = false;
+                for (int i = 0; i < line.length(); i++) {
+                    char c = line.charAt(i);
+                    if (c == '"') {
+                        if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                            current.append('"');
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (c == ';' && !inQuotes) {
+                        fields.add(current.toString());
+                        current.setLength(0);
+                    } else {
+                        current.append(c);
+                    }
                 }
-                System.out.println();
-                if (fields.length < 13) {
+                fields.add(current.toString());
+
+                if (fields.size() < 13) {
                     System.err.println("Строка " + rowCount + ": недостаточно полей, пропущена.");
-                    System.err.println("Ожидалось 13 полей, получено " + fields.length);
+                    System.err.println("Ожидалось 13 полей, получено " + fields.size());
                     continue;
                 }
                 try {
-                    String key = fields[0];
+                    String key = fields.get(0);
                     if (key.isEmpty()) {
                         System.err.println("Строка " + rowCount + ": пустой ключ, пропущена.");
                         continue;
                     }
-                    int id = Integer.parseInt(fields[1]);
-                    String name = fields[2];
-                    float x = Float.parseFloat(fields[3]);
-                    Float y = fields[4].isEmpty() ? null : Float.parseFloat(fields[4]);
+                    int id = Integer.parseInt(fields.get(1));
+                    String name = fields.get(2);
+                    float x = Float.parseFloat(fields.get(3));
+                    Float y = fields.get(4).isEmpty() ? null : Float.parseFloat(fields.get(4));
                     if (y == null) throw new IllegalArgumentException("y не может быть null");
 
-                    LocalDateTime creationDate = LocalDateTime.parse(fields[5]);
-                    float health = Float.parseFloat(fields[6]);
+                    LocalDateTime creationDate = LocalDateTime.parse(fields.get(5));
+                    float health = Float.parseFloat(fields.get(6));
 
-                    AstartesCategory category = fields[7].isEmpty() ? null : AstartesCategory.valueOf(fields[7]);
-                    Weapon weapon = Weapon.valueOf(fields[8]); // не null
-                    MeleeWeapon meleeWeapon = fields[9].isEmpty() ? null : MeleeWeapon.valueOf(fields[9]);
+                    AstartesCategory category = fields.get(7).isEmpty() ? null : AstartesCategory.valueOf(fields.get(7));
+                    Weapon weapon = Weapon.valueOf(fields.get(8)); // не null
+                    MeleeWeapon meleeWeapon = fields.get(9).isEmpty() ? null : MeleeWeapon.valueOf(fields.get(9));
 
                     Chapter chapter = null;
-                    if (!fields[10].isEmpty()) {
-                        String chName = fields[10];
-                        int chCount = Integer.parseInt(fields[11]);
-                        String chWorld = fields[12].isEmpty() ? null : fields[12];
+                    if (!fields.get(10).isEmpty()) {
+                        String chName = fields.get(10);
+                        int chCount = Integer.parseInt(fields.get(11));
+                        String chWorld = fields.get(12).isEmpty() ? null : fields.get(12);
                         chapter = new Chapter(chName, chCount, chWorld);
                     }
 
@@ -116,7 +141,7 @@ public class CsvReader {
         } catch (FileNotFoundException e) {
             System.err.println("Файл не найден: " + e.getMessage());
             System.err.println("Проверьте путь: " + filePath);
-            System.exit(1);
+            exit(1);
         }
     }
 }
